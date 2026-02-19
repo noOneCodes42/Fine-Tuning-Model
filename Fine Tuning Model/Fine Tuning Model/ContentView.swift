@@ -1,6 +1,8 @@
 import SwiftUI
 import UniformTypeIdentifiers
 import MarkdownUI
+import Foundation
+
 // Make sure to disable sandbox (It should be disabled but double check), As well as got System Settings -> Privacy & Security -> Click on "Full Disk Access" and then upload the app into it.
 // To upload the app right click the icon on the macOS navigation corresponding to the app and click Show in Finder then drag it into the "Full Disk Access" Area.
 // Only HuggingFace Base Models
@@ -177,8 +179,8 @@ struct ContentView: View {
         let pipe = Pipe()
         let fileHandle = pipe.fileHandleForReading
 
-        let scriptPath = "/path/to/the/Finetuining.py" // Change to where the fine tuning script from the gihub is on the device
-        let pythonPath = "/path/to/python3" // do which python or which python3 and copy and paste the file path
+        let scriptPath = "/Users/neelarora/Fine-Tuning-Model/Finetuining.py" // Change to where the fine tuning script from the gihub is on the device
+        let pythonPath = "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3" // do which python or python 3 in the terminal and copy and paste the file path returned and put it here
 
         process.executableURL = URL(fileURLWithPath: pythonPath)
         process.arguments = [scriptPath, "--model", model, "--data", jsonlPath]
@@ -357,8 +359,9 @@ struct ChatView: View {
         let pipe = Pipe()
         let fileHandle = pipe.fileHandleForReading
 
-        let scriptPath = "/path/to/the/ChatBot.py" // Adjust path depending on where you clones this repo
-        let pythonPath = "/path/to/python3" // do which python or which python3 and copy and paste the file path
+        let scriptPath = "/Users/neelarora/Fine-Tuning-Model/ChatBot.py" // Adjust path depending on where you clones this repo
+        let pythonPath = "/Library/Frameworks/Python.framework/Versions/3.12/bin/python3" // do which python/python3 and copy and paste the file path
+
         process.executableURL = URL(fileURLWithPath: pythonPath)
         process.arguments = [scriptPath, "--message", userMessage, "--modelPath", modelFolderPath] // Pass the model path
         process.standardOutput = pipe
@@ -524,7 +527,8 @@ struct ChatMessageView: View {
             if message.isUser {
                 Spacer()
             }
-            Text(message.text)
+            let finalText = message.text.formattedMathSymbols()
+            Text(finalText)
                 .padding()
                 .background(message.isUser ? Color.blue : Color.gray)
                 .foregroundColor(.white)
@@ -534,3 +538,58 @@ struct ChatMessageView: View {
         .padding(message.isUser ? .leading : .trailing, 50)
     }
 }
+
+
+extension String {
+    func formattedMathSymbols() -> String {
+        var formatted = self
+
+        // 1. Replace known Unicode fractions
+        let fractionMap: [String: String] = [
+            "1/2": "½", "1/3": "⅓", "2/3": "⅔", "1/4": "¼",
+            "3/4": "¾", "1/5": "⅕", "2/5": "⅖", "3/5": "⅗",
+            "4/5": "⅘", "1/6": "⅙", "5/6": "⅚", "1/8": "⅛",
+            "3/8": "⅜", "5/8": "⅝", "7/8": "⅞"
+        ]
+        for (plain, unicode) in fractionMap {
+            formatted = formatted.replacingOccurrences(of: "\\b\(plain)\\b", with: unicode, options: .regularExpression)
+        }
+
+        // 2. Replace other fractions (e.g., 7/13) with prettier version using fraction slash
+        formatted = formatted.replacingOccurrences(
+            of: #"(?<!\d)(\d+)/(\d+)(?!\d)"#,
+            with: "$1⁄$2",
+            options: .regularExpression
+        )
+
+        // 3. Replace "90 degrees" or "45 deg" with "90°"
+        formatted = formatted.replacingOccurrences(of: "(\\d+)\\s*(degrees|deg)", with: "$1°", options: .regularExpression)
+
+        // 4. Replace superscripts like ^2 with ²
+        let superscriptMap: [Character: Character] = [
+            "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴",
+            "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹"
+        ]
+
+        let powerRegex = try! NSRegularExpression(pattern: "\\^([0-9])")
+        let matches = powerRegex.matches(in: formatted, range: NSRange(formatted.startIndex..., in: formatted))
+
+        var offset = 0
+        for match in matches {
+            guard let range = Range(match.range(at: 1), in: formatted) else { continue }
+            let digitChar = formatted[range].first!
+            if let superscript = superscriptMap[digitChar] {
+                let fullRange = match.range
+                let nsFormatted = formatted as NSString
+                let replacementRange = NSRange(location: fullRange.location - offset, length: fullRange.length)
+                formatted = nsFormatted.replacingCharacters(in: replacementRange, with: String(superscript))
+                offset += 1 // adjusting for dropped "^"
+            }
+        }
+
+        return formatted
+    }
+}
+
+
+

@@ -18,7 +18,7 @@ def load_model(model_path):
         model = AutoModelForCausalLM.from_pretrained(model_path).to(device)
         return tokenizer, model, device
     except Exception as e:
-        print(f"❌ Error loading model: {e}")
+        print(f"Error loading model: {e}")
         return None, None, None
 
 def generate_response(tokenizer, model, device, user_message):
